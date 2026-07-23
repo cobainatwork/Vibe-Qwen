@@ -24,6 +24,8 @@ class Settings:
     allowed_origins: list[str] = field(
         default_factory=_env("VIBE_QWEN_FRONTEND_ORIGINS", "http://localhost:5173", _parse_origins)
     )
+    # SQLite 單檔資料庫路徑（Hotword 與後續 Voice metadata）。
+    db_path: Path = field(default_factory=_env("VIBE_QWEN_DB_PATH", "var/vibe_qwen.db", Path))
     # 暫存資料夾與孤兒檔保留期（秒）；啟動序列據此回收過期檔。
     temp_dir: Path = field(default_factory=_env("VIBE_QWEN_TEMP_DIR", "var/tmp", Path))
     temp_max_age_seconds: float = field(
