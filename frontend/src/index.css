@@ -158,7 +158,8 @@ body {
 .panel__warn {
   margin: 0 0 16px;
   padding: 10px 12px;
-  border-left: 3px solid var(--down);
+  border: 1px solid color-mix(in srgb, var(--down) 40%, var(--border));
+  border-radius: 8px;
   background: var(--surface-2);
   color: var(--down);
   font-family: var(--mono);
