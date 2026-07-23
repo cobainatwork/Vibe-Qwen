@@ -26,6 +26,17 @@ class Settings:
     )
     # SQLite 單檔資料庫路徑（Hotword 與後續 Voice metadata）。
     db_path: Path = field(default_factory=_env("VIBE_QWEN_DB_PATH", "var/vibe_qwen.db", Path))
+    # Hotword context 的 token 預算上界（64K 為 context＋音訊共用，留裕度給音訊）。
+    hotword_context_token_budget: int = field(
+        default_factory=_env("VIBE_QWEN_HOTWORD_CONTEXT_TOKEN_BUDGET", "8000", int)
+    )
+    # Hotword 匯入上限：檔案大小（bytes）與筆數，超過回 413。
+    hotword_import_max_bytes: int = field(
+        default_factory=_env("VIBE_QWEN_HOTWORD_IMPORT_MAX_BYTES", "1048576", int)
+    )
+    hotword_import_max_rows: int = field(
+        default_factory=_env("VIBE_QWEN_HOTWORD_IMPORT_MAX_ROWS", "10000", int)
+    )
     # 暫存資料夾與孤兒檔保留期（秒）；啟動序列據此回收過期檔。
     temp_dir: Path = field(default_factory=_env("VIBE_QWEN_TEMP_DIR", "var/tmp", Path))
     temp_max_age_seconds: float = field(

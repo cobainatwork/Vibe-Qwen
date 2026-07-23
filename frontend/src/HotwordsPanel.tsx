@@ -3,9 +3,12 @@ import { useCallback, useEffect, useState } from "react";
 import {
   createHotword,
   deleteHotword,
+  importHotwords,
   listHotwords,
+  previewContext,
   setHotwordEnabled,
   updateHotword,
+  type ContextPreview,
   type Hotword,
 } from "./hotwords";
 
@@ -18,6 +21,9 @@ export function HotwordsPanel() {
   const [editTerm, setEditTerm] = useState("");
   const [editNote, setEditNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ContextPreview | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   const load = useCallback(async (q: string) => {
     try {
@@ -54,6 +60,20 @@ export function HotwordsPanel() {
       await updateHotword(editingId!, editTerm, editNote);
       setEditingId(null);
     });
+
+  const handlePreview = () =>
+    void run(async () => {
+      setPreview(await previewContext());
+    });
+
+  const handleImport = () => {
+    if (!importFile) return;
+    const format = importFile.name.toLowerCase().endsWith(".csv") ? "csv" : "json";
+    void run(async () => {
+      const result = await importHotwords(importFile, format);
+      setImportResult(`新增 ${result.created}、更新 ${result.updated}`);
+    });
+  };
 
   return (
     <section className="panel">
@@ -94,6 +114,37 @@ export function HotwordsPanel() {
           新增
         </button>
       </form>
+
+      <div className="hw-toolbar">
+        <a className="hw-link" href="/api/admin/hotwords/export?format=json" download>
+          匯出 JSON
+        </a>
+        <a className="hw-link" href="/api/admin/hotwords/export?format=csv" download>
+          匯出 CSV
+        </a>
+        <input
+          type="file"
+          aria-label="匯入檔案"
+          accept=".csv,.json"
+          onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+        />
+        <button className="hw-link" type="button" onClick={handleImport}>
+          匯入
+        </button>
+        <button className="hw-link" type="button" onClick={handlePreview}>
+          預覽 context
+        </button>
+      </div>
+
+      {importResult && <p className="panel__note">匯入完成：{importResult}</p>}
+      {preview && (
+        <div className="hw-preview">
+          <p className="panel__note">
+            token 估算 {preview.token_estimate} / 上限 {preview.token_budget}
+          </p>
+          <pre className="hw-preview__text">{preview.context}</pre>
+        </div>
+      )}
 
       <input
         className="hw-input hw-search"

@@ -293,3 +293,34 @@ body {
   color: var(--muted);
   text-align: center;
 }
+
+.hw-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.hw-toolbar input[type="file"] {
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+}
+
+.hw-preview {
+  margin-bottom: 16px;
+}
+
+.hw-preview__text {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

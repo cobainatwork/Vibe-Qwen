@@ -75,4 +75,33 @@ describe("HotwordsPanel", () => {
 
     await waitFor(() => expect(mockedApi.deleteHotword).toHaveBeenCalledWith("1"));
   });
+
+  it("預覽 context 呼叫 previewContext 並顯示編譯字串", async () => {
+    mockedApi.listHotwords.mockResolvedValue([]);
+    mockedApi.previewContext.mockResolvedValue({
+      context: "台積電、聯發科",
+      token_estimate: 6,
+      token_budget: 8000,
+    });
+
+    render(<HotwordsPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "預覽 context" }));
+
+    expect(await screen.findByText(/台積電、聯發科/)).toBeInTheDocument();
+  });
+
+  it("匯入檔案呼叫 importHotwords 並顯示結果", async () => {
+    mockedApi.listHotwords.mockResolvedValue([]);
+    mockedApi.importHotwords.mockResolvedValue({ created: 2, updated: 1 });
+
+    render(<HotwordsPanel />);
+    const file = new File(["[]"], "h.json", { type: "application/json" });
+    fireEvent.change(screen.getByLabelText("匯入檔案"), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: "匯入" }));
+
+    await waitFor(() =>
+      expect(mockedApi.importHotwords).toHaveBeenCalledWith(file, "json"),
+    );
+    expect(await screen.findByText(/新增 2/)).toBeInTheDocument();
+  });
 });
