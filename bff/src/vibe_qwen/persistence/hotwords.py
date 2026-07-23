@@ -61,6 +61,37 @@ class HotwordRepository:
         assert created is not None  # 剛插入，必存在
         return created
 
+    def upsert_many(self, rows: list[dict], batch_size: int = 500) -> tuple[int, int]:
+        """以 term 為自然鍵批次 upsert，回 (created, updated)。
+
+        單一連線分批 commit：避免逐列開關連線的開銷，也避免整檔單一大交易
+        長時間獨佔寫鎖引發全系統 SQLITE_BUSY（spec 匯入分批交易）。
+        """
+        created = updated = 0
+        with self._conn() as conn:
+            for i, row in enumerate(rows, start=1):
+                term = clean_term(row["term"])
+                existing = conn.execute(
+                    "SELECT id FROM hotwords WHERE term = ?", (term,)
+                ).fetchone()
+                enabled = 1 if row["enabled"] else 0
+                if existing is not None:
+                    conn.execute(
+                        "UPDATE hotwords SET note = ?, enabled = ?, "
+                        "updated_at = datetime('now') WHERE term = ?",
+                        (row["note"], enabled, term),
+                    )
+                    updated += 1
+                else:
+                    conn.execute(
+                        "INSERT INTO hotwords (id, term, note, enabled) VALUES (?, ?, ?, ?)",
+                        (str(uuid4()), term, row["note"], enabled),
+                    )
+                    created += 1
+                if i % batch_size == 0:
+                    conn.commit()
+        return created, updated
+
     def get(self, hid: str) -> dict | None:
         with self._conn() as conn:
             row = conn.execute("SELECT * FROM hotwords WHERE id = ?", (hid,)).fetchone()

@@ -14,7 +14,8 @@ from vibe_qwen.api.health import router as health_router
 from vibe_qwen.api.hotwords import router as hotwords_router
 from vibe_qwen.config import Settings
 from vibe_qwen.files.cleanup import cleanup_expired_temp_files
-from vibe_qwen.hotword_text import InvalidHotwordTerm
+from vibe_qwen.hotword_io import ImportLimitExceeded, ImportParseError
+from vibe_qwen.hotword_text import ContextBudgetExceeded, InvalidHotwordTerm
 from vibe_qwen.middleware.limits import HeavyRequestGuard, HeavyRequestRejected
 from vibe_qwen.middleware.origin import OriginGuardMiddleware
 from vibe_qwen.persistence.hotwords import HotwordNotFound, HotwordRepository
@@ -62,6 +63,35 @@ def create_app(
         )
 
     app.add_exception_handler(InvalidHotwordTerm, _on_invalid_term)
+
+    async def _on_context_budget(request, exc: ContextBudgetExceeded) -> JSONResponse:
+        return JSONResponse(
+            status_code=413,
+            content={
+                "error": {
+                    "code": "CONTEXT_BUDGET_EXCEEDED",
+                    "message": f"context 估算 {exc.estimate} tokens 超過上限 {exc.budget}，請停用部分 Hotword。",
+                }
+            },
+        )
+
+    app.add_exception_handler(ContextBudgetExceeded, _on_context_budget)
+
+    async def _on_import_limit(request, exc: ImportLimitExceeded) -> JSONResponse:
+        return JSONResponse(
+            status_code=413,
+            content={"error": {"code": "IMPORT_LIMIT_EXCEEDED", "message": exc.message}},
+        )
+
+    app.add_exception_handler(ImportLimitExceeded, _on_import_limit)
+
+    async def _on_import_parse(request, exc: ImportParseError) -> JSONResponse:
+        return JSONResponse(
+            status_code=400,
+            content={"error": {"code": "IMPORT_PARSE_ERROR", "message": exc.message}},
+        )
+
+    app.add_exception_handler(ImportParseError, _on_import_parse)
 
     async def _on_hotword_not_found(request, exc: HotwordNotFound) -> JSONResponse:
         return JSONResponse(

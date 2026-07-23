@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createHotword, deleteHotword, listHotwords, setHotwordEnabled } from "./hotwords";
+import {
+  createHotword,
+  deleteHotword,
+  importHotwords,
+  listHotwords,
+  previewContext,
+  setHotwordEnabled,
+} from "./hotwords";
 
 function mockFetch(data: unknown, ok = true, status = 200) {
   return vi.fn().mockResolvedValue({ ok, status, json: async () => ({ data }) });
@@ -69,5 +76,39 @@ describe("hotwords API client", () => {
     vi.stubGlobal("fetch", mockFetch(null, false, 400));
 
     await expect(createHotword("x")).rejects.toThrow();
+  });
+
+  it("previewContext 解析 {data} 信封", async () => {
+    const preview = { context: "台積電、聯發科", token_estimate: 6, token_budget: 8000 };
+    vi.stubGlobal("fetch", mockFetch(preview));
+
+    await expect(previewContext()).resolves.toEqual(preview);
+  });
+
+  it("previewContext 超標 413 時拋出帶訊息的錯誤", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 413,
+        json: async () => ({ error: { message: "context 超過上限" } }),
+      }),
+    );
+
+    await expect(previewContext()).rejects.toThrow("context 超過上限");
+  });
+
+  it("importHotwords 以 multipart POST 檔案並回 {created, updated}", async () => {
+    const fetchMock = mockFetch({ created: 2, updated: 1 });
+    vi.stubGlobal("fetch", fetchMock);
+    const file = new File(["[]"], "h.json", { type: "application/json" });
+
+    const result = await importHotwords(file, "json");
+
+    expect(result).toEqual({ created: 2, updated: 1 });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/admin/hotwords/import?format=json");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
   });
 });
