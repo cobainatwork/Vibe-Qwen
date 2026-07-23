@@ -40,7 +40,7 @@ services:
     networks:
       - vibe
     restart: unless-stopped
-    deploy:
+    deploy: &gpu_deploy
       resources:
         reservations:
           devices:
@@ -54,13 +54,7 @@ services:
     networks:
       - vibe
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["0"]  # 釘選同一張卡，符 ADR-0001 共用單卡 VRAM 協調
-              capabilities: [gpu]
+    deploy: *gpu_deploy
 
 networks:
   vibe:

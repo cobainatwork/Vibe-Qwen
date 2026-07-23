@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 
 import { fetchHealth } from "./api";
-import { SECTIONS, isSubmitDisabled, type Health, type SectionKey } from "./health";
+import {
+  SECTIONS,
+  SECTION_ORDER,
+  findBlockingService,
+  type Health,
+  type SectionKey,
+  type ServiceKey,
+} from "./health";
 
 type HealthState =
   | { status: "loading" }
@@ -37,17 +44,23 @@ function useHealth(pollMs = 10000): HealthState {
   return state;
 }
 
-function ServiceChip({
-  name,
-  ready,
-  errored,
-}: {
-  name: string;
-  ready: boolean | null;
-  errored: boolean;
-}) {
-  const kind = errored ? "down" : ready == null ? "unknown" : ready ? "ready" : "down";
-  const label = errored ? "連線失敗" : ready == null ? "查詢中" : ready ? "就緒" : "未就緒";
+type ChipStatus = "loading" | "ready" | "down" | "error";
+
+const CHIP_META: Record<ChipStatus, { kind: string; label: string }> = {
+  loading: { kind: "unknown", label: "查詢中" },
+  ready: { kind: "ready", label: "就緒" },
+  down: { kind: "down", label: "未就緒" },
+  error: { kind: "down", label: "連線失敗" },
+};
+
+function serviceStatus(state: HealthState, svc: ServiceKey): ChipStatus {
+  if (state.status === "error") return "error";
+  if (state.status === "loading") return "loading";
+  return state.health[svc].ready ? "ready" : "down";
+}
+
+function ServiceChip({ name, status }: { name: string; status: ChipStatus }) {
+  const { kind, label } = CHIP_META[status];
   return (
     <span className={`chip chip--${kind}`}>
       <span className="chip__dot" aria-hidden="true" />
@@ -57,33 +70,32 @@ function ServiceChip({
 }
 
 function StatusStrip({ state }: { state: HealthState }) {
-  const health = state.status === "ready" ? state.health : null;
-  const errored = state.status === "error";
   return (
     <div className="status-strip" role="status">
-      <ServiceChip name="ASR" ready={health ? health.asr.ready : null} errored={errored} />
-      <ServiceChip name="TTS" ready={health ? health.tts.ready : null} errored={errored} />
-      {errored && <span className="status-strip__error">健康檢查連線失敗：{state.message}</span>}
+      <ServiceChip name="ASR" status={serviceStatus(state, "asr")} />
+      <ServiceChip name="TTS" status={serviceStatus(state, "tts")} />
+      {state.status === "error" && (
+        <span className="status-strip__error">健康檢查連線失敗：{state.message}</span>
+      )}
     </div>
   );
 }
 
 function SectionPanel({ section, state }: { section: SectionKey; state: HealthState }) {
-  const meta = SECTIONS.find((s) => s.key === section)!;
+  const meta = SECTIONS[section];
   const health = state.status === "ready" ? state.health : null;
-  const disabled = isSubmitDisabled(section, health);
-  const blockingSvc = meta.requires.find((svc) => !health || !health[svc].ready);
+  const blocking = findBlockingService(section, health);
 
   return (
     <section className="panel">
       <h2 className="panel__title">{meta.label}</h2>
       <p className="panel__note">此區塊功能於後續實作票交付；目前為 walking skeleton 佔位。</p>
-      {disabled && meta.requires.length > 0 && (
+      {blocking && (
         <p className="panel__warn">
-          {blockingSvc?.toUpperCase()} 服務尚未就緒，已停用送出以避免無效操作。
+          {blocking.toUpperCase()} 服務尚未就緒，已停用送出以避免無效操作。
         </p>
       )}
-      <button className="btn" type="button" disabled={disabled}>
+      <button className="btn" type="button" disabled={blocking !== null}>
         送出
       </button>
     </section>
@@ -105,15 +117,15 @@ export function App() {
       </header>
 
       <nav className="tabs" aria-label="功能區塊">
-        {SECTIONS.map((s) => (
+        {SECTION_ORDER.map((key) => (
           <button
-            key={s.key}
+            key={key}
             type="button"
-            className={s.key === active ? "tab tab--active" : "tab"}
-            aria-current={s.key === active}
-            onClick={() => setActive(s.key)}
+            className={key === active ? "tab tab--active" : "tab"}
+            aria-current={key === active}
+            onClick={() => setActive(key)}
           >
-            {s.label}
+            {SECTIONS[key].label}
           </button>
         ))}
       </nav>

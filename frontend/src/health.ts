@@ -9,21 +9,24 @@ export type Health = {
 
 export type SectionKey = "hotwords" | "asr" | "tts" | "voices";
 
-export const SECTIONS: {
-  key: SectionKey;
-  label: string;
-  requires: ServiceKey[];
-}[] = [
-  { key: "hotwords", label: "Hotword 管理", requires: [] },
-  { key: "asr", label: "ASR 測試", requires: ["asr"] },
-  { key: "tts", label: "TTS 測試", requires: ["tts"] },
-  { key: "voices", label: "音色管理", requires: ["tts"] },
-];
+export const SECTION_ORDER: SectionKey[] = ["hotwords", "asr", "tts", "voices"];
 
-// US 48：健康狀態未知，或該區塊所需模型服務未就緒時，停用送出。
+export const SECTIONS: Record<SectionKey, { label: string; requires: ServiceKey[] }> = {
+  hotwords: { label: "Hotword 管理", requires: [] },
+  asr: { label: "ASR 測試", requires: ["asr"] },
+  tts: { label: "TTS 測試", requires: ["tts"] },
+  voices: { label: "音色管理", requires: ["tts"] },
+};
+
+// 回傳阻擋該區塊送出的首個未就緒服務；皆就緒或無需服務時回 null。
+export function findBlockingService(section: SectionKey, health: Health | null): ServiceKey | null {
+  for (const svc of SECTIONS[section].requires) {
+    if (!health || !health[svc].ready) return svc;
+  }
+  return null;
+}
+
+// US 48：所需模型服務未就緒（或狀態未知）時停用送出。
 export function isSubmitDisabled(section: SectionKey, health: Health | null): boolean {
-  const requires = SECTIONS.find((s) => s.key === section)?.requires ?? [];
-  if (requires.length === 0) return false;
-  if (!health) return true;
-  return requires.some((svc) => !health[svc].ready);
+  return findBlockingService(section, health) !== null;
 }
