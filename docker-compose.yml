@@ -1,0 +1,67 @@
+# Vibe-Qwen 正式版編排：四部署單元，vLLM 與 TTS 共用單張 GPU。
+# 注意：vllm 與 tts 的映像、模型 id 與服務層實作待 spec Further Notes 所述 spike
+# 定案（見 #2/#4）；此處以合理預設宣告部署拓撲，adapter 對接於對應票交付。
+
+services:
+  bff:
+    build:
+      context: ./bff
+    environment:
+      VIBE_QWEN_FRONTEND_ORIGINS: "http://localhost"
+      VIBE_QWEN_ASR_BASE_URL: "http://vllm:8000"
+      VIBE_QWEN_TTS_BASE_URL: "http://tts:9000"
+    depends_on:
+      vllm:
+        condition: service_started
+      tts:
+        condition: service_started
+    networks:
+      - vibe
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:8080"
+    depends_on:
+      - bff
+    networks:
+      - vibe
+    restart: unless-stopped
+
+  vllm:
+    # VibeVoice-ASR，經 vLLM 的 /v1/chat/completions 提供（ADR-0001）。
+    # gpu_memory_utilization 壓低以替 TTS 保留 VRAM，避免 OOM。
+    image: vllm/vllm-openai:latest
+    command: >
+      --model ${VIBE_QWEN_ASR_MODEL:-PLACEHOLDER_ASR_MODEL_ID}
+      --gpu-memory-utilization 0.55
+    networks:
+      - vibe
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]  # 釘選同一張卡，符 ADR-0001 共用單卡 VRAM 協調
+              capabilities: [gpu]
+
+  tts:
+    # Qwen3-TTS 獨立服務程序（映像與實作待 spike 定案）。
+    image: ${VIBE_QWEN_TTS_IMAGE:-PLACEHOLDER_QWEN3_TTS_IMAGE}
+    networks:
+      - vibe
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]  # 釘選同一張卡，符 ADR-0001 共用單卡 VRAM 協調
+              capabilities: [gpu]
+
+networks:
+  vibe:
+    driver: bridge

@@ -1,0 +1,36 @@
+# Vibe-Qwen dev 編排：無 GPU 工作機用。僅 BFF 與前端，BFF 預設即以 stub
+# adapter 啟動（真實 AsrClient/TtsClient 於 #2/#4 落地），故無需 vLLM/TTS。
+
+services:
+  bff:
+    build:
+      context: ./bff
+    environment:
+      VIBE_QWEN_FRONTEND_ORIGINS: "http://localhost:5173"
+    ports:
+      - "8000:8000"
+    networks:
+      - vibe-dev
+
+  frontend:
+    image: node:24-alpine
+    working_dir: /app
+    environment:
+      VITE_BFF_TARGET: "http://bff:8000"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - bff
+    networks:
+      - vibe-dev
+
+networks:
+  vibe-dev:
+    driver: bridge
+
+volumes:
+  frontend_node_modules:
