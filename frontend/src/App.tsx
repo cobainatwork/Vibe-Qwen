@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { HotwordsPanel } from "./HotwordsPanel";
 import { fetchHealth } from "./api";
 import {
   SECTIONS,
@@ -131,7 +132,11 @@ export function App() {
       </nav>
 
       <main className="app__main">
-        <SectionPanel section={active} state={state} />
+        {active === "hotwords" ? (
+          <HotwordsPanel />
+        ) : (
+          <SectionPanel section={active} state={state} />
+        )}
       </main>
     </div>
   );
